@@ -1,49 +1,22 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 
-import { getProducts } from '../api/products';
-import { useCart } from '../context/CartContext';
+import { useProducts } from '../hooks/useProducts';
+import { useCart } from '../hooks/useCart';
+import { useWishlist } from '../hooks/useWishlist';
 import ProductCard from '../components/ProductCard';
 import SearchFilterBar from '../components/SearchFilterBar';
-import Spinner from '../components/Spinner';
+import Loader from '../components/Loader';
 import ErrorMessage from '../components/ErrorMessage';
+import EmptyState from '../components/EmptyState';
 
 function ProductListPage() {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { products, loading, error, refetch } = useProducts();
+  const { cartItems, handleAddToCart } = useCart();
+  const { wishlistIds, toggleWishlist } = useWishlist();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [category, setCategory] = useState('all');
   const [sortOrder, setSortOrder] = useState('default');
-
-  const { cartItems, handleAddToCart } = useCart();
-
-  // bumping this number re-runs the fetch effect (used by the retry button)
-  const [reloadKey, setReloadKey] = useState(0);
-
-  useEffect(() => {
-    let ignore = false;
-
-    async function loadProducts() {
-      setLoading(true);
-      setError('');
-      try {
-        const data = await getProducts();
-        if (!ignore) setProducts(data);
-      } catch (err) {
-        if (!ignore) setError('Could not load products. Please check your connection.');
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    }
-
-    loadProducts();
-
-    // if the component unmounts mid-request, don't set state on it
-    return () => {
-      ignore = true;
-    };
-  }, [reloadKey]);
 
   const categories = useMemo(() => {
     const unique = new Set(products.map((p) => p.category));
@@ -53,8 +26,8 @@ function ProductListPage() {
   // ids of products already in the cart, so cards can show a different button
   const cartIds = useMemo(() => new Set(cartItems.map((item) => item.id)), [cartItems]);
 
-  // Filtering and sorting on a list of 100 items is cheap, but this still runs on
-  // every render (e.g. when the cart changes) unless we memoize it.
+  // Filtering + sorting runs again on every render unless we memoize it, and this
+  // page re-renders when the cart or wishlist changes, not just when filters do.
   const visibleProducts = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
 
@@ -73,8 +46,14 @@ function ProductListPage() {
     return result;
   }, [products, searchTerm, category, sortOrder]);
 
-  if (loading) return <Spinner text="Loading products..." />;
-  if (error) return <ErrorMessage message={error} onRetry={() => setReloadKey((k) => k + 1)} />;
+  function resetFilters() {
+    setSearchTerm('');
+    setCategory('all');
+    setSortOrder('default');
+  }
+
+  if (loading) return <Loader text="Loading products..." />;
+  if (error) return <ErrorMessage message={error} onRetry={refetch} />;
 
   return (
     <section>
@@ -96,9 +75,12 @@ function ProductListPage() {
       />
 
       {visibleProducts.length === 0 ? (
-        <div className="status-box">
-          <p>No products match your search. Try a different name or category.</p>
-        </div>
+        <EmptyState
+          title="No products found"
+          message="Nothing matches your search. Try a different name or category."
+          actionLabel="Clear filters"
+          onAction={resetFilters}
+        />
       ) : (
         <div className="product-grid">
           {visibleProducts.map((product) => (
@@ -106,7 +88,9 @@ function ProductListPage() {
               key={product.id}
               product={product}
               inCart={cartIds.has(product.id)}
+              isWishlisted={wishlistIds.has(product.id)}
               onAddToCart={handleAddToCart}
+              onToggleWishlist={toggleWishlist}
             />
           ))}
         </div>

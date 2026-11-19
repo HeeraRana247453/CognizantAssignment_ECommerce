@@ -1,3 +1,4 @@
+import Input from './Input';
 import { formatCategory } from '../utils/format';
 
 function SearchFilterBar({
@@ -11,10 +12,10 @@ function SearchFilterBar({
 }) {
   return (
     <div className="filter-bar">
-      <input
+      <Input
         type="search"
-        className="input search-input"
         placeholder="Search products by name"
+        aria-label="Search products"
         value={searchTerm}
         onChange={(e) => onSearchChange(e.target.value)}
       />

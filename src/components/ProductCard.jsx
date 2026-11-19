@@ -1,12 +1,18 @@
 import { memo } from 'react';
 import { Link } from 'react-router-dom';
+
+import Button from './Button';
+import WishlistButton from './WishlistButton';
 import { formatPrice, formatCategory } from '../utils/format';
 
-// memo + useCallback in the parent means a card only re-renders when its own
-// product (or its inCart flag) changes, not on every keystroke in the search box
-function ProductCard({ product, inCart, onAddToCart }) {
+// The grid can show 100 of these. Because of memo, plus the stable handlers coming
+// from the context, a card only re-renders when its own product, inCart or
+// isWishlisted changes, not on every keystroke in the search box.
+function ProductCard({ product, inCart, isWishlisted, onAddToCart, onToggleWishlist }) {
   return (
     <article className="product-card">
+      <WishlistButton active={isWishlisted} onClick={() => onToggleWishlist(product)} />
+
       <Link to={`/products/${product.id}`} className="product-image-wrap">
         <img src={product.thumbnail} alt={product.title} loading="lazy" />
       </Link>
@@ -19,12 +25,13 @@ function ProductCard({ product, inCart, onAddToCart }) {
 
         <div className="product-bottom">
           <span className="product-price">{formatPrice(product.price)}</span>
-          <button
-            className={inCart ? 'btn btn-outline btn-small' : 'btn btn-small'}
+          <Button
+            size="small"
+            variant={inCart ? 'outline' : 'primary'}
             onClick={() => onAddToCart(product)}
           >
             {inCart ? 'Add another' : 'Add to cart'}
-          </button>
+          </Button>
         </div>
       </div>
     </article>

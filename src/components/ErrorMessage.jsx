@@ -1,11 +1,13 @@
+import Button from './Button';
+
 function ErrorMessage({ message, onRetry }) {
   return (
-    <div className="status-box error-box">
+    <div className="status-box error-box" role="alert">
       <p>{message}</p>
       {onRetry && (
-        <button className="btn btn-outline" onClick={onRetry}>
+        <Button variant="outline" onClick={onRetry}>
           Try again
-        </button>
+        </Button>
       )}
     </div>
   );

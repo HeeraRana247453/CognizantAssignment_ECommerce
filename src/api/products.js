@@ -4,7 +4,9 @@ const BASE_URL = 'https://dummyjson.com';
 async function request(url) {
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Request failed with status ${res.status}`);
+    const error = new Error(`Request failed with status ${res.status}`);
+    error.status = res.status;
+    throw error;
   }
   return res.json();
 }

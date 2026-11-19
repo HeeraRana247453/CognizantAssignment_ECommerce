@@ -1,7 +1,10 @@
 import { memo } from 'react';
 import { Link } from 'react-router-dom';
+
+import Button from './Button';
 import { formatPrice } from '../utils/format';
 
+// memo here means changing the quantity of one item doesn't re-render the others
 function CartItem({ item, onIncrease, onDecrease, onRemove }) {
   return (
     <li className="cart-item">
@@ -12,17 +15,22 @@ function CartItem({ item, onIncrease, onDecrease, onRemove }) {
           {item.title}
         </Link>
         <span className="muted">{formatPrice(item.price)} each</span>
-        <button className="link-button" onClick={() => onRemove(item.id)}>
+        <Button variant="link" className="danger-text" onClick={() => onRemove(item.id)}>
           Remove
-        </button>
+        </Button>
       </div>
 
       <div className="quantity-control">
-        <button onClick={() => onDecrease(item.id)} disabled={item.quantity === 1} aria-label="Decrease quantity">
+        <button
+          type="button"
+          onClick={() => onDecrease(item.id)}
+          disabled={item.quantity === 1}
+          aria-label="Decrease quantity"
+        >
           -
         </button>
         <span>{item.quantity}</span>
-        <button onClick={() => onIncrease(item.id)} aria-label="Increase quantity">
+        <button type="button" onClick={() => onIncrease(item.id)} aria-label="Increase quantity">
           +
         </button>
       </div>

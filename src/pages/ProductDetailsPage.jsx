@@ -1,50 +1,33 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
-import { getProductById } from '../api/products';
-import { useCart } from '../context/CartContext';
+import { useProduct } from '../hooks/useProduct';
+import { useCart } from '../hooks/useCart';
+import { useWishlist } from '../hooks/useWishlist';
 import { formatPrice, formatCategory } from '../utils/format';
-import Spinner from '../components/Spinner';
+import Button from '../components/Button';
+import Loader from '../components/Loader';
 import ErrorMessage from '../components/ErrorMessage';
 
 function ProductDetailsPage() {
   const { id } = useParams();
+  const { product, loading, error, refetch } = useProduct(id);
   const { cartItems, handleAddToCart } = useCart();
+  const { wishlistIds, toggleWishlist } = useWishlist();
 
-  const [product, setProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [activeImage, setActiveImage] = useState(0);
 
+  // going from one product to another reuses this component, so reset the gallery
   useEffect(() => {
-    let ignore = false;
-
-    async function loadProduct() {
-      setLoading(true);
-      setError('');
-      setActiveImage(0);
-      try {
-        const data = await getProductById(id);
-        if (!ignore) setProduct(data);
-      } catch (err) {
-        if (!ignore) setError('We could not find this product.');
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    }
-
-    loadProduct();
-
-    return () => {
-      ignore = true;
-    };
+    setActiveImage(0);
   }, [id]);
 
-  if (loading) return <Spinner text="Loading product..." />;
+  if (loading) return <Loader text="Loading product..." />;
+
   if (error || !product) {
     return (
       <>
-        <ErrorMessage message={error || 'Product not found.'} />
+        <ErrorMessage message={error || 'Product not found.'} onRetry={refetch} />
         <p className="center">
           <Link to="/">Back to products</Link>
         </p>
@@ -53,6 +36,7 @@ function ProductDetailsPage() {
   }
 
   const cartItem = cartItems.find((item) => item.id === product.id);
+  const isWishlisted = wishlistIds.has(product.id);
   const images = product.images && product.images.length > 0 ? product.images : [product.thumbnail];
 
   return (
@@ -71,6 +55,7 @@ function ProductDetailsPage() {
             <div className="details-thumbs">
               {images.map((img, index) => (
                 <button
+                  type="button"
                   key={img}
                   className={index === activeImage ? 'thumb active' : 'thumb'}
                   onClick={() => setActiveImage(index)}
@@ -101,20 +86,22 @@ function ProductDetailsPage() {
           <p className="details-description">{product.description}</p>
 
           <div className="details-actions">
-            <button
-              className="btn"
-              onClick={() => handleAddToCart(product)}
-              disabled={product.stock === 0}
-            >
+            <Button onClick={() => handleAddToCart(product)} disabled={product.stock === 0}>
               {cartItem ? 'Add another' : 'Add to cart'}
-            </button>
+            </Button>
+
+            <Button variant="outline" onClick={() => toggleWishlist(product)}>
+              {isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+            </Button>
 
             {cartItem && (
-              <Link to="/cart" className="btn btn-outline">
+              <Button variant="outline" to="/cart">
                 View cart ({cartItem.quantity})
-              </Link>
+              </Button>
             )}
           </div>
+
+          {isWishlisted && <p className="muted wishlist-note">This product is in your wishlist.</p>}
         </div>
       </div>
     </section>

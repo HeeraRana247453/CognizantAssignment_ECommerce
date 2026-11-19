@@ -1,39 +1,25 @@
-import {
-  createContext,
-  useContext,
-  useReducer,
-  useEffect,
-  useCallback,
-  useMemo,
-} from 'react';
+import { createContext, useReducer, useEffect, useCallback, useMemo } from 'react';
 
 import cartReducer, { ACTIONS } from '../reducers/cartReducer';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 
-const CartContext = createContext(null);
-const STORAGE_KEY = 'shopease-cart';
-
-// used as the lazy initializer for useReducer so we read localStorage only once
-function loadSavedCart() {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : [];
-  } catch (error) {
-    console.error('Could not read saved cart', error);
-    return [];
-  }
-}
+export const CartContext = createContext(null);
 
 export function CartProvider({ children }) {
-  const [cartItems, dispatch] = useReducer(cartReducer, [], loadSavedCart);
+  // useLocalStorage reads the saved cart on load and writes it back on every change
+  const [savedCart, setSavedCart] = useLocalStorage('shopease-cart', []);
 
-  // keep localStorage in sync so the cart survives a page refresh
+  // the reducer starts from whatever was saved, then owns all cart updates
+  const [cartItems, dispatch] = useReducer(cartReducer, savedCart);
+
+  // push every cart change into localStorage
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(cartItems));
-  }, [cartItems]);
+    setSavedCart(cartItems);
+  }, [cartItems, setSavedCart]);
 
-  // These handlers are passed down to memoized children (ProductCard, CartItem).
-  // dispatch never changes, so useCallback with [] gives us the same function
-  // reference on every render and React.memo can actually skip re-renders.
+  // These handlers go down to memoized children (ProductCard, CartItem).
+  // dispatch never changes, so useCallback with [] keeps the same function
+  // reference between renders and React.memo can actually skip re-renders.
   const handleAddToCart = useCallback((product) => {
     dispatch({ type: ACTIONS.ADD_TO_CART, payload: product });
   }, []);
@@ -64,6 +50,7 @@ export function CartProvider({ children }) {
     [cartItems]
   );
 
+  // memoized so consumers only re-render when something inside really changed
   const value = useMemo(
     () => ({
       cartItems,
@@ -88,12 +75,4 @@ export function CartProvider({ children }) {
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
-}
-
-export function useCart() {
-  const context = useContext(CartContext);
-  if (!context) {
-    throw new Error('useCart must be used inside a CartProvider');
-  }
-  return context;
 }

@@ -1,8 +1,11 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
 
-import { useCart } from '../context/CartContext';
+import { useCart } from '../hooks/useCart';
 import { formatPrice } from '../utils/format';
+import Button from '../components/Button';
 import CartItem from '../components/CartItem';
+import EmptyState from '../components/EmptyState';
+import Modal from '../components/Modal';
 
 function CartPage() {
   const {
@@ -15,25 +18,31 @@ function CartPage() {
     handleClearCart,
   } = useCart();
 
+  const [showClearModal, setShowClearModal] = useState(false);
+
   if (cartItems.length === 0) {
     return (
-      <div className="status-box">
-        <h2>Your cart is empty</h2>
-        <p>Add something from the product list and it will show up here.</p>
-        <Link to="/" className="btn">
-          Browse products
-        </Link>
-      </div>
+      <EmptyState
+        title="Your cart is empty"
+        message="Add something from the product list and it will show up here."
+        actionLabel="Browse products"
+        actionTo="/"
+      />
     );
+  }
+
+  function confirmClear() {
+    handleClearCart();
+    setShowClearModal(false);
   }
 
   return (
     <section>
       <div className="page-heading">
         <h1>Your cart</h1>
-        <button className="link-button" onClick={handleClearCart}>
+        <Button variant="link" className="danger-text" onClick={() => setShowClearModal(true)}>
           Clear cart
-        </button>
+        </Button>
       </div>
 
       <div className="cart-layout">
@@ -63,11 +72,29 @@ function CartPage() {
             <span>Total</span>
             <span>{formatPrice(cartTotal)}</span>
           </div>
-          <Link to="/checkout" className="btn btn-full">
+          <Button to="/checkout" fullWidth>
             Go to checkout
-          </Link>
+          </Button>
         </aside>
       </div>
+
+      <Modal
+        isOpen={showClearModal}
+        title="Clear your cart?"
+        onClose={() => setShowClearModal(false)}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setShowClearModal(false)}>
+              Keep items
+            </Button>
+            <Button variant="danger" onClick={confirmClear}>
+              Clear cart
+            </Button>
+          </>
+        }
+      >
+        <p>This removes all {cartCount} items from your cart.</p>
+      </Modal>
     </section>
   );
 }

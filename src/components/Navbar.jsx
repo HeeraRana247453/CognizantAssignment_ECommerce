@@ -1,8 +1,10 @@
 import { Link, NavLink } from 'react-router-dom';
-import { useCart } from '../context/CartContext';
+import { useCart } from '../hooks/useCart';
+import { useWishlist } from '../hooks/useWishlist';
 
 function Navbar() {
   const { cartCount } = useCart();
+  const { wishlistCount } = useWishlist();
 
   return (
     <header className="navbar">
@@ -14,6 +16,10 @@ function Navbar() {
         <nav className="nav-links">
           <NavLink to="/" end>
             Products
+          </NavLink>
+          <NavLink to="/wishlist">
+            Wishlist
+            {wishlistCount > 0 && <span className="cart-badge">{wishlistCount}</span>}
           </NavLink>
           <NavLink to="/cart">
             Cart
