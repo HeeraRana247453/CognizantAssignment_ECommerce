@@ -1,19 +1,25 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
-import { useProduct } from '../hooks/useProduct';
+import { useProducts } from '../hooks/useProducts';
 import { useCart } from '../hooks/useCart';
 import { useWishlist } from '../hooks/useWishlist';
+import { useAuth } from '../hooks/useAuth';
 import { formatPrice, formatCategory } from '../utils/format';
+import Alert from '../components/Alert';
+import Badge from '../components/Badge';
 import Button from '../components/Button';
-import Loader from '../components/Loader';
+import EmptyState from '../components/EmptyState';
 import ErrorMessage from '../components/ErrorMessage';
+import Loader from '../components/Loader';
+import PriceTag from '../components/PriceTag';
 
 function ProductDetailsPage() {
   const { id } = useParams();
-  const { product, loading, error, refetch } = useProduct(id);
+  const { getProductById, loading, error, refetch } = useProducts();
   const { cartItems, handleAddToCart } = useCart();
   const { wishlistIds, toggleWishlist } = useWishlist();
+  const { isAdmin } = useAuth();
 
   const [activeImage, setActiveImage] = useState(0);
 
@@ -23,74 +29,122 @@ function ProductDetailsPage() {
   }, [id]);
 
   if (loading) return <Loader text="Loading product..." />;
+  if (error) return <ErrorMessage message={error} onRetry={refetch} />;
 
-  if (error || !product) {
+  const product = getProductById(id);
+  const hiddenFromStore = product && (!product.isActive || product.isRemoved);
+
+  // customers can't open hidden or removed products, admins can (to preview them)
+  if (!product || (hiddenFromStore && !isAdmin)) {
     return (
-      <>
-        <ErrorMessage message={error || 'Product not found.'} onRetry={refetch} />
-        <p className="center">
-          <Link to="/">Back to products</Link>
-        </p>
-      </>
+      <EmptyState
+        title="Product not found"
+        message="This product does not exist or is no longer available."
+        actionLabel="Back to shop"
+        actionTo="/"
+      />
     );
   }
 
   const cartItem = cartItems.find((item) => item.id === product.id);
   const isWishlisted = wishlistIds.has(product.id);
+  const outOfStock = product.stock < 1;
+  const hasDiscount = product.discountPercentage > 0;
   const images = product.images && product.images.length > 0 ? product.images : [product.thumbnail];
 
   return (
     <section>
-      <Link to="/" className="back-link">
-        &larr; Back to products
+      <Link to="/" className="mb-6 inline-block text-sm text-stone-500 hover:text-teal-700">
+        &larr; Back to shop
       </Link>
 
-      <div className="details-layout">
-        <div className="details-gallery">
-          <div className="details-main-image">
-            <img src={images[activeImage]} alt={product.title} />
+      {hiddenFromStore && (
+        <div className="mb-6">
+          <Alert variant="warning">
+            This product is {product.isRemoved ? 'removed' : 'hidden'}. Customers cannot see it.
+            You can manage it in the <Link to="/admin" className="font-semibold underline">Admin Panel</Link>.
+          </Alert>
+        </div>
+      )}
+
+      <div className="grid gap-8 md:grid-cols-2 lg:gap-14">
+        <div>
+          <div className="relative aspect-square overflow-hidden rounded-3xl border border-stone-200 bg-white">
+            {hasDiscount && (
+              <Badge variant="sale" className="absolute left-4 top-4 z-10 px-3! py-1! text-sm! shadow">
+                -{product.discountPercentage}% OFF
+              </Badge>
+            )}
+            <img
+              src={images[activeImage]}
+              alt={product.title}
+              className="h-full w-full object-contain p-6"
+            />
           </div>
 
           {images.length > 1 && (
-            <div className="details-thumbs">
+            <div className="mt-3 flex flex-wrap gap-2">
               {images.map((img, index) => (
                 <button
                   type="button"
                   key={img}
-                  className={index === activeImage ? 'thumb active' : 'thumb'}
                   onClick={() => setActiveImage(index)}
+                  className={`h-16 w-16 overflow-hidden rounded-xl border-2 bg-white p-1 transition ${
+                    index === activeImage ? 'border-teal-600' : 'border-stone-200 hover:border-stone-400'
+                  }`}
                 >
-                  <img src={img} alt={`${product.title} view ${index + 1}`} />
+                  <img
+                    src={img}
+                    alt={`${product.title} view ${index + 1}`}
+                    className="h-full w-full object-cover"
+                  />
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        <div className="details-info">
-          <span className="product-category">{formatCategory(product.category)}</span>
-          <h1>{product.title}</h1>
-          {product.brand && <p className="muted">by {product.brand}</p>}
+        <div>
+          <span className="text-xs font-semibold uppercase tracking-wide text-teal-700">
+            {formatCategory(product.category)}
+          </span>
+          <h1 className="mt-2 font-display text-3xl font-semibold leading-tight sm:text-4xl">
+            {product.title}
+          </h1>
+          {product.brand && <p className="mt-1 text-stone-500">by {product.brand}</p>}
 
-          <p className="details-price">{formatPrice(product.price)}</p>
-
-          <p className="details-meta">
-            Rating {product.rating} / 5
-            {product.stock > 0 ? (
-              <span className="in-stock"> &middot; {product.stock} in stock</span>
-            ) : (
-              <span className="out-of-stock"> &middot; Out of stock</span>
+          <div className="mt-5">
+            <PriceTag
+              size="lg"
+              price={product.price}
+              finalPrice={product.finalPrice}
+              discountPercentage={product.discountPercentage}
+            />
+            {hasDiscount && (
+              <p className="mt-1 text-sm font-medium text-emerald-700">
+                You save {formatPrice(product.price - product.finalPrice)}
+              </p>
             )}
-          </p>
+          </div>
 
-          <p className="details-description">{product.description}</p>
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-stone-500">
+            <span>{product.rating ? `Rating ${product.rating} / 5` : 'New arrival'}</span>
+            <span aria-hidden="true">&middot;</span>
+            {outOfStock ? (
+              <span className="font-medium text-rose-600">Out of stock</span>
+            ) : (
+              <span className="font-medium text-emerald-700">{product.stock} in stock</span>
+            )}
+          </div>
 
-          <div className="details-actions">
-            <Button onClick={() => handleAddToCart(product)} disabled={product.stock === 0}>
+          <p className="mt-6 max-w-prose leading-relaxed text-stone-600">{product.description}</p>
+
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Button disabled={outOfStock} onClick={() => handleAddToCart(product)}>
               {cartItem ? 'Add another' : 'Add to cart'}
             </Button>
 
-            <Button variant="outline" onClick={() => toggleWishlist(product)}>
+            <Button variant="outline" onClick={() => toggleWishlist(product.id)}>
               {isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
             </Button>
 
@@ -101,7 +155,9 @@ function ProductDetailsPage() {
             )}
           </div>
 
-          {isWishlisted && <p className="muted wishlist-note">This product is in your wishlist.</p>}
+          {isWishlisted && (
+            <p className="mt-4 text-sm text-stone-500">This product is in your wishlist.</p>
+          )}
         </div>
       </div>
     </section>

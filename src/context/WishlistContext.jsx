@@ -3,49 +3,27 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 
 export const WishlistContext = createContext(null);
 
+// Only product ids are stored. Prices and discounts are looked up from the
+// catalog when needed (see useWishlistProducts), so they never go stale.
 export function WishlistProvider({ children }) {
-  const [wishlistItems, setWishlistItems] = useLocalStorage('shopease-wishlist', []);
+  const [wishlistIdList, setWishlistIdList] = useLocalStorage('shopease-wishlist-ids', []);
 
   // one function for both add and remove, the heart button just toggles
   const toggleWishlist = useCallback(
-    (product) => {
-      setWishlistItems((prev) => {
-        const alreadySaved = prev.some((item) => item.id === product.id);
-
-        if (alreadySaved) {
-          return prev.filter((item) => item.id !== product.id);
-        }
-
-        // keep only the fields a product card needs
-        return [
-          ...prev,
-          {
-            id: product.id,
-            title: product.title,
-            price: product.price,
-            thumbnail: product.thumbnail,
-            category: product.category,
-          },
-        ];
-      });
+    (id) => {
+      setWishlistIdList((prev) =>
+        prev.includes(id) ? prev.filter((savedId) => savedId !== id) : [...prev, id]
+      );
     },
-    [setWishlistItems]
+    [setWishlistIdList]
   );
 
   // a Set makes "is this product wishlisted?" a quick lookup for every card
-  const wishlistIds = useMemo(
-    () => new Set(wishlistItems.map((item) => item.id)),
-    [wishlistItems]
-  );
+  const wishlistIds = useMemo(() => new Set(wishlistIdList), [wishlistIdList]);
 
   const value = useMemo(
-    () => ({
-      wishlistItems,
-      wishlistIds,
-      wishlistCount: wishlistItems.length,
-      toggleWishlist,
-    }),
-    [wishlistItems, wishlistIds, toggleWishlist]
+    () => ({ wishlistIds, toggleWishlist }),
+    [wishlistIds, toggleWishlist]
   );
 
   return <WishlistContext.Provider value={value}>{children}</WishlistContext.Provider>;
